@@ -5,6 +5,7 @@ from tkinter import messagebox
 import pyodbc
 from CoCenter import CoCenter
 
+
 def getVal(s):
     tmp = s.replace('(', '')
     tmp = tmp.replace(')', '')
@@ -41,7 +42,7 @@ class LoginFrame(Frame):
         self.radiobutton3 = Radiobutton(frame, text="管理员", variable=self.v, value=3)
         self.radiobutton3.grid(row=2, column=3, sticky=E + W)
         self.button = Button(frame, text="登陆", command=self.ButtonClick)
-        self.button.grid(row=3, column=1, padx=10, ipadx=10, sticky=E + W)
+        self.button.grid(row=3, column=0, padx=10, ipadx=10, sticky=E + W)
         self.button2 = Button(frame, text="退出", command=frame.quit)
         self.button2.grid(row=3, column=2, padx=10, ipadx=10, sticky=E + W)
     
@@ -58,26 +59,48 @@ class LoginFrame(Frame):
             self.login(job_number, password, '管理员')
     
     def login(self, job_number, password, position):
-        if not job_number:
-            messagebox.showinfo('登录失败', '请输入工号！')
-        elif not password:
-            messagebox.showinfo('登录失败', '请输入密码！')
-        else:
-            cnxn = pyodbc.connect('DRIVER={SQL Server};SERVER=LAPTOP-38ACSOA2;DATABASE=公交管理系统;UID=HJHGJGHHG;PWD=123456')
-            cursor = cnxn.cursor()
-            cursor.execute("SELECT 用户名,密码,职位,姓名 FROM 用户信息,成员信息 WHERE 用户名=工号 AND 用户名=" + job_number)
-            users_info = cursor.fetchall()
-            cursor.close()
-            if not users_info:
-                messagebox.showinfo('登录失败', '用户名不存在！')
-            elif password not in re.findall(r'\d+', users_info[0][1]):
-                messagebox.showinfo('登录失败', '密码错误！')
-            elif position not in users_info[0]:
-                messagebox.showinfo('登录失败', '职位选择错误！')
+        if position != '管理员':
+            if not job_number:
+                messagebox.showinfo('登录失败', '请输入工号！')
+            elif not password:
+                messagebox.showinfo('登录失败', '请输入密码！')
             else:
-                messagebox.showinfo('登录成功', '欢迎使用本系统！用户 ' + users_info[0][-1] + '\n' + '工号：' + job_number + '职位：' + position)
-                # s1: 工号  s2: 密码  name: 姓名  position: 职位
-                w = CoCenter(job_number, password, users_info[0][-1], position)
+                cnxn_admin = pyodbc.connect('DRIVER={SQL Server};SERVER=LAPTOP-38ACSOA2;DATABASE=公交管理系统;UID=sa;PWD=')
+                cursor = cnxn_admin.cursor()
+                cursor.execute(
+                    "SELECT 用户信息.工号,密码,职位,成员信息.姓名 FROM 用户信息,成员信息 WHERE 用户信息.工号=成员信息.工号 AND 用户信息.工号=" + job_number)
+                users_info = cursor.fetchall()
+                if not users_info:
+                    messagebox.showinfo('登录失败', '用户名不存在！')
+                elif password not in re.findall(r'\d+', users_info[0][1]):
+                    messagebox.showinfo('登录失败', '密码错误！')
+                elif position not in users_info[0]:
+                    messagebox.showinfo('登录失败', '职位选择错误！')
+                else:
+                    name = users_info[0][-1]
+                    cnxn = pyodbc.connect(
+                        'DRIVER={SQL Server};SERVER=LAPTOP-38ACSOA2;DATABASE=公交管理系统;UID=' + name + ';PWD=' + password)
+                    messagebox.showinfo('登录成功',
+                                        '欢迎使用本系统！用户 ' + users_info[0][
+                                            -1] + '\n' + '工号：' + job_number + '  职位：' + position)
+                    # job_number: 工号  password: 密码  name: 姓名  position: 职位
+                    w = CoCenter(job_number, password, name, position, cnxn_admin, cnxn)
+        else:
+            if job_number != 'sa':
+                messagebox.showinfo('登录失败', '管理员用户名错误！')
+            else:
+                try:
+                    cnxn_admin = pyodbc.connect(
+                        'DRIVER={SQL Server};SERVER=LAPTOP-38ACSOA2;DATABASE=公交管理系统;UID=sa;PWD=')
+                    cursor = cnxn_admin.cursor()
+                except pyodbc.InterfaceError:
+                    messagebox.showinfo('登录失败', '管理员密码错误！')
+                else:
+                    messagebox.showinfo('登录成功', '欢迎使用本系统！')
+                    w = CoCenter(job_number, password, name='', position='admin', cnxn_admin=cnxn_admin,
+                                 cnxn=cnxn_admin)
     
     def quit(self):
+        messagebox.showinfo('提示', '退出系统成功！')
         self.destroy()
+        frame.quit
